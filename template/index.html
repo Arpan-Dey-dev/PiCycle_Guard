@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>PiCycle Guard Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>
+    async function updateStatus() {
+      const response = await fetch("/status");
+      const data = await response.json();
+      document.getElementById("status").innerText = data.status;
+      if (data.maps_url) {
+        document.getElementById("map").innerHTML = `<a href="${data.maps_url}" target="_blank">View Location</a>`;
+      }
+    }
+    setInterval(updateStatus, 5000);
+    window.onload = updateStatus;
+  </script>
+</head>
+<body>
+  <div class="login-container">
+    <h2>🚴 PiCycle Guard Dashboard</h2>
+    <p>Welcome, <b>{{ username }}</b></p>
+    <p id="status">Checking...</p>
+    <p id="map"></p>
+    <a href="{{ url_for('logout') }}" class="btn">Logout</a>
+  </div>
+</body>
+</html>

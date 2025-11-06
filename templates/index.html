@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>PiCycle Guard Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f8f9fa;
+      color: #222;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .dashboard-container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      position: relative;
+    }
+
+    h2 {
+      color: #007bff;
+      margin-bottom: 15px;
+    }
+
+    #status {
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #333;
+      margin: 15px 0;
+    }
+
+    #map a {
+      text-decoration: none;
+      color: #28a745;
+      font-weight: bold;
+    }
+
+    #map a:hover {
+      text-decoration: underline;
+    }
+
+    /* Logout button fixed top-right */
+    .logout-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: background 0.3s;
+    }
+
+    .logout-btn:hover {
+      background: #c82333;
+    }
+
+    /* Mobile responsiveness */
+    @media (max-width: 600px) {
+      .dashboard-container {
+        width: 95%;
+        padding: 20px;
+      }
+
+      .logout-btn {
+        top: 8px;
+        right: 8px;
+        padding: 6px 12px;
+        font-size: 0.8em;
+      }
+
+      h2 {
+        font-size: 1.2em;
+      }
+
+      #status {
+        font-size: 1em;
+      }
+    }
+  </style>
+
+  <script>
+    // ---- Update vibration status ----
+    async function updateStatus() {
+      try {
+        const response = await fetch("/status");
+        const data = await response.json();
+        document.getElementById("status").innerText = data.status || "No data";
+
+        if (data.maps_url) {
+          document.getElementById("map").innerHTML =
+            `<a href="${data.maps_url}" target="_blank">📍 View Current Location</a>`;
+        } else {
+          document.getElementById("map").innerHTML = "";
+        }
+      } catch (err) {
+        console.error("Status update failed:", err);
+      }
+    }
+
+    setInterval(updateStatus, 5000);
+    window.onload = updateStatus;
+
+    // ---- Send owner's live location periodically ----
+    async function sendKeepAlive() {
+      if (!navigator.geolocation) {
+        console.warn("Geolocation not supported");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+
+        try {
+          await fetch('/keepalive', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({lat, lon})
+          });
+        } catch (err) {
+          console.error("Keepalive failed:", err);
+        }
+
+      }, (err) => {
+        console.warn('Geolocation denied or failed:', err);
+      }, {enableHighAccuracy: true});
+    }
+
+    setInterval(sendKeepAlive, 8000);
+  </script>
+</head>
+
+<body>
+  <div class="dashboard-container">
+    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    <h2>🚴 PiCycle Guard Dashboard</h2>
+    <p>Welcome, <b>{{ username }}</b></p>
+
+    <div id="status">Checking...</div>
+    <div id="map"></div>
+  </div>
+</body>
+</html>
