@@ -1,1 +1,1 @@
-web: gunicorn # picycle_wifi_token:app
+web: gunicorn picycle_wifi_token:app
