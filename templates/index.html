@@ -95,7 +95,7 @@
   </style>
 
   <script>
-    // ---- Update vibration status ----
+    // ---------------------- UPDATE VIBRATION STATUS ----------------------
     async function updateStatus() {
       try {
         const response = await fetch("/status");
@@ -113,13 +113,10 @@
       }
     }
 
-    setInterval(updateStatus, 5000);
-    window.onload = updateStatus;
-
-    // ---- Send owner's live location periodically ----
+    // ---------------------- SEND OWNER'S LOCATION ----------------------
     async function sendKeepAlive() {
       if (!navigator.geolocation) {
-        console.warn("Geolocation not supported");
+        console.warn("❌ Geolocation not supported in this browser.");
         return;
       }
 
@@ -128,21 +125,43 @@
         const lon = pos.coords.longitude;
 
         try {
-          await fetch('/keepalive', {
+          const response = await fetch('/keepalive', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({lat, lon})
+            body: JSON.stringify({ lat, lon })
           });
+
+          const data = await response.json();
+          if (data.ok) {
+            console.log(`📡 Location updated successfully: ${lat}, ${lon}`);
+          } else {
+            console.warn("⚠️ Location update failed:", data.error);
+          }
         } catch (err) {
-          console.error("Keepalive failed:", err);
+          console.error("🚫 Keepalive error:", err);
         }
 
       }, (err) => {
-        console.warn('Geolocation denied or failed:', err);
-      }, {enableHighAccuracy: true});
+        console.warn('⚠️ Geolocation denied or failed:', err.message);
+      }, {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 10000
+      });
     }
 
-    setInterval(sendKeepAlive, 8000);
+    // ---------------------- COMBINED INTERVAL ----------------------
+    // Every 10 seconds: update vibration status & send owner location
+    setInterval(() => {
+      updateStatus();
+      sendKeepAlive();
+    }, 10000);
+
+    // Run both immediately on load
+    window.onload = () => {
+      updateStatus();
+      sendKeepAlive();
+    };
   </script>
 </head>
 
