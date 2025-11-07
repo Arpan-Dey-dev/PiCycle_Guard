@@ -1,7 +1,9 @@
 # picycle_wifi_final_proximity.py
 # PiCycle Guard - WiFi-Based Version with Login, Registration, and Owner Proximity Check
+
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import sqlite3, os, random, datetime, sys, math
+from werkzeug.security import generate_password_hash, check_password_hash  # ✅ added secure hashing
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -70,13 +72,14 @@ def get_user(username):
 
 
 def register_user(username, password):
-    """Register new user if username is not taken."""
+    """Register new user securely (with password hashing)."""
+    hashed_password = generate_password_hash(password, method='pbkdf2:sha256', salt_length=16)
     device_token = "TOKEN-" + str(random.randint(10000, 99999))
     conn = get_db_connection()
     try:
         conn.execute(
             "INSERT INTO users (username, password, device_token) VALUES (?, ?, ?)",
-            (username, password, device_token),
+            (username, hashed_password, device_token),
         )
         conn.commit()
         return True
@@ -96,7 +99,7 @@ def log_login(username, ip):
 
 def log_alert(status, lat=None, lon=None):
     """Log vibration alert with optional GPS data."""
-    timestamp = datetime.datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") if False else datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     entry = f"[{timestamp}] {status}"
     if lat is not None and lon is not None:
         entry += f" | Location: {lat}, {lon}"
@@ -107,6 +110,7 @@ def log_alert(status, lat=None, lon=None):
 
 # ---------------------- Simulated IoT Logic ----------------------
 ON_PI = False  # set True on actual Pi and wire sensor
+
 
 def get_gps_coords():
     """
@@ -187,7 +191,8 @@ def login():
         user = get_user(username)
 
         if user:
-            if user["password"] == password:
+            # ✅ Secure password verification
+            if check_password_hash(user["password"], password):
                 session["username"] = username
                 log_login(username, request.remote_addr)
                 return redirect(url_for("home"))
@@ -262,14 +267,12 @@ def keepalive():
     """
     Owner's device (browser/app) should POST JSON with { "lat": float, "lon": float }
     If user is logged-in on that device, the session username will be used to update
-    the DB last_seen and last coordinates. For other clients, provide 'username' + password
-    in JSON or use device token flow (not implemented here).
+    the DB last_seen and last coordinates.
     """
     data = request.get_json(silent=True) or {}
     lat = data.get("lat")
     lon = data.get("lon")
 
-    # Prefer session username (owner using their logged-in browser)
     username = session.get("username")
     if not username:
         return jsonify({"ok": False, "error": "Not authenticated via session"}), 403
@@ -298,6 +301,6 @@ def logout():
 
 # ---------------------- Run Flask ----------------------
 if __name__ == "__main__":
-    print("🚴 PiCycle Guard (WiFi + DB + Proximity) running at http://127.0.0.1:5000/")
+    print("🚴 PiCycle Guard (WiFi + DB + Proximity + Secure Passwords) running at http://127.0.0.1:5000/")
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
